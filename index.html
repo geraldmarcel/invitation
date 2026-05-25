@@ -95,22 +95,53 @@
             }
         }
 
-        // --- EVENT LISTENER UNTUK MOBILE (TOUCH) ---
-        window.addEventListener('touchstart', (e) => {
-            updateAim(e.touches[0].clientX, e.touches[0].clientY);
-        }, { passive: true });
+        // --- EVENT LISTENER SANGAT PEKA UNTUK MOBILE & DESKTOP ---
 
-        window.addEventListener('touchmove', (e) => {
-            updateAim(e.touches[0].clientX, e.touches[0].clientY);
-        }, { passive: true });
+// 1. Saat Layar Disentuh / Diklik
+function handleStart(e) {
+    if (hasBroken || isStriking) return;
+    
+    // Ambil koordinat (mendukung Touch HP atau Klik Mouse)
+    let clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    let clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    
+    updateAim(clientX, clientY);
+}
 
-        window.addEventListener('touchend', () => {
-            if (isTouching && !hasBroken && !isStriking) {
-                isStriking = true;
-                isTouching = false;
-                document.querySelector('.instruction').style.display = 'none';
-            }
-        });
+// 2. Saat Jari/Mouse Digeser di Layar
+function handleMove(e) {
+    if (hasBroken || isStriking || !isTouching) return;
+    
+    // Mencegah browser melakukan scroll/zoom otomatis saat kita nge-drag stik
+    if (e.cancelable) e.preventDefault(); 
+    
+    let clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    let clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    
+    updateAim(clientX, clientY);
+}
+
+// 3. Saat Jari Dilepas / Klik Mouse Selesai (Memicu Pukulan)
+function handleEnd(e) {
+    if (isTouching && !hasBroken && !isStriking) {
+        isStriking = true;
+        isTouching = false;
+        
+        // Sembunyikan teks petunjuk jika ada
+        const instructionText = document.querySelector('.instruction');
+        if (instructionText) instructionText.style.display = 'none';
+    }
+}
+
+// Pasang Event Listener khusus Mobile (Touch)
+window.addEventListener('touchstart', handleStart, { passive: false });
+window.addEventListener('touchmove', handleMove, { passive: false });
+window.addEventListener('touchend', handleEnd, { passive: false });
+
+// Pasang Event Listener cadangan untuk PC/Laptop (Mouse)
+window.addEventListener('mousedown', (e) => { isTouching = true; handleStart(e); });
+window.addEventListener('mousemove', handleMove);
+window.addEventListener('mouseup', handleEnd);
 
         // --- EVENT LISTENER UNTUK DESKTOP (MOUSE fallback) ---
         window.addEventListener('mousedown', (e) => {
