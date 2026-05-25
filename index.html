@@ -2,13 +2,17 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Billiard Break Intro - Upgraded</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Billiard Break Intro - Mobile Friendly</title>
     <style>
         * {
             box-sizing: border-box;
             margin: 0;
             padding: 0;
+            /* Mencegah layar geser-geser pas di-drag di HP */
+            touch-action: none; 
+            -webkit-user-select: none;
+            user-select: none;
         }
         body, html {
             width: 100%;
@@ -16,7 +20,6 @@
             overflow: hidden;
             background-color: #111;
             font-family: Arial, sans-serif;
-            cursor: crosshair;
         }
         #intro-container {
             position: relative;
@@ -25,7 +28,7 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            background: radial-gradient(circle, #0f7329 0%, #053b13 100%); /* Warna Laken Premium */
+            background: radial-gradient(circle, #0f7329 0%, #053b13 100%);
             transition: opacity 1s ease-in-out;
         }
         canvas {
@@ -33,13 +36,15 @@
         }
         .instruction {
             position: absolute;
-            top: 8%;
+            top: 12%;
             color: rgba(255, 255, 255, 0.9);
-            font-size: 1.3rem;
+            font-size: 1.1rem;
             text-transform: uppercase;
-            letter-spacing: 3px;
+            letter-spacing: 2px;
             pointer-events: none;
             text-align: center;
+            width: 100%;
+            padding: 0 20px;
             text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
             animation: pulse 1.5s infinite alternate;
         }
@@ -56,7 +61,7 @@
 <body>
 
     <div id="intro-container">
-        <div class="instruction">Gerakkan mouse & Klik untuk Tembak!</div>
+        <div class="instruction">Geser jari untuk membidik, lepas untuk BREAK!</div>
         <canvas id="billiardCanvas"></canvas>
     </div>
 
@@ -75,15 +80,50 @@
         let balls = [];
         let hasBroken = false;
         let isStriking = false;
-        let strikeProgress = 0; // Untuk animasi stik
+        let strikeProgress = 0; 
 
-        // Posisi Mouse / Target
-        let mouse = { x: 0, y: 0 };
+        // Posisi Bidikan (Mendukung Mouse & Touch)
+        let aimPoint = { x: 0, y: 0 };
+        let isTouching = false;
 
+        // Fungsi memperbarui koordinat bidikan
+        function updateAim(clientX, clientY) {
+            if (!hasBroken && !isStriking) {
+                aimPoint.x = clientX;
+                aimPoint.y = clientY;
+                isTouching = true;
+            }
+        }
+
+        // --- EVENT LISTENER UNTUK MOBILE (TOUCH) ---
+        window.addEventListener('touchstart', (e) => {
+            updateAim(e.touches[0].clientX, e.touches[0].clientY);
+        }, { passive: true });
+
+        window.addEventListener('touchmove', (e) => {
+            updateAim(e.touches[0].clientX, e.touches[0].clientY);
+        }, { passive: true });
+
+        window.addEventListener('touchend', () => {
+            if (isTouching && !hasBroken && !isStriking) {
+                isStriking = true;
+                isTouching = false;
+                document.querySelector('.instruction').style.display = 'none';
+            }
+        });
+
+        // --- EVENT LISTENER UNTUK DESKTOP (MOUSE fallback) ---
+        window.addEventListener('mousedown', (e) => {
+            updateAim(e.clientX, e.clientY);
+        });
         window.addEventListener('mousemove', (e) => {
-            if (!hasBroken) {
-                mouse.x = e.clientX;
-                mouse.y = e.clientY;
+            if (isTouching) updateAim(e.clientX, e.clientY);
+        });
+        window.addEventListener('mouseup', () => {
+            if (isTouching && !hasBroken && !isStriking) {
+                isStriking = true;
+                isTouching = false;
+                document.querySelector('.instruction').style.display = 'none';
             }
         });
 
@@ -100,43 +140,37 @@
             }
 
             draw() {
-                // 1. Bayangan Bola di Meja
+                // Shadow
                 ctx.beginPath();
-                ctx.arc(this.x + 3, this.y + 4, this.radius, 0, Math.PI * 2);
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+                ctx.arc(this.x + 2, this.y + 3, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
                 ctx.fill();
-                ctx.closePath();
 
-                // 2. Body Bola Utama dengan Gradasi 3D (Glossy)
+                // Glossy Ball
                 ctx.beginPath();
                 let gradient = ctx.createRadialGradient(
                     this.x - this.radius*0.3, this.y - this.radius*0.3, this.radius * 0.1,
                     this.x, this.y, this.radius
                 );
-                
                 if (this.isCueBall) {
                     gradient.addColorStop(0, '#ffffff');
                     gradient.addColorStop(1, '#e0e0e0');
                 } else {
-                    gradient.addColorStop(0, '#ffffff'); // Efek pantulan cahaya putih di atas bola
+                    gradient.addColorStop(0, '#ffffff');
                     gradient.addColorStop(0.2, this.color);
-                    gradient.addColorStop(1, darkenColor(this.color, 40)); // Bagian bawah lebih gelap
+                    gradient.addColorStop(1, darkenColor(this.color, 40));
                 }
-                
                 ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
                 ctx.fillStyle = gradient;
                 ctx.fill();
-                ctx.closePath();
 
-                // 3. Lingkaran Angka Putih di Tengah (Bukan Bola Putih)
+                // Number
                 if (!this.isCueBall) {
                     ctx.beginPath();
                     ctx.arc(this.x, this.y, this.radius * 0.45, 0, Math.PI * 2);
                     ctx.fillStyle = '#ffffff';
                     ctx.fill();
-                    ctx.closePath();
 
-                    // Teks Angka
                     ctx.fillStyle = '#111111';
                     ctx.font = `bold ${this.radius * 0.5}px Arial`;
                     ctx.textAlign = 'center';
@@ -151,15 +185,14 @@
                 this.vx *= friction;
                 this.vy *= friction;
 
-                // Pantulan dinding pembatas
-                if (this.x - this.radius < 50) { this.x = this.radius + 50; this.vx *= -0.8; }
-                if (this.x + this.radius > canvas.width - 50) { this.x = canvas.width - this.radius - 50; this.vx *= -0.8; }
-                if (this.y - this.radius < 50) { this.y = this.radius + 50; this.vy *= -0.8; }
-                if (this.y + this.radius > canvas.height - 50) { this.y = canvas.height - this.radius - 50; this.vy *= -0.8; }
+                let border = window.innerWidth < 600 ? 25 : 45;
+                if (this.x - this.radius < border) { this.x = this.radius + border; this.vx *= -0.8; }
+                if (this.x + this.radius > canvas.width - border) { this.x = canvas.width - this.radius - border; this.vx *= -0.8; }
+                if (this.y - this.radius < border) { this.y = this.radius + border; this.vy *= -0.8; }
+                if (this.y + this.radius > canvas.height - border) { this.y = canvas.height - this.radius - border; this.vy *= -0.8; }
             }
         }
 
-        // Fungsi pembantu menggelapkan warna untuk efek 3D
         function darkenColor(hex, percent) {
             let num = parseInt(hex.replace("#",""), 16),
             amt = Math.round(2.55 * percent),
@@ -169,22 +202,21 @@
             return "#" + (0x1000000 + (R<0?0:R>255?255:R)*0x10000 + (G<0?0:G>255?255:G)*0x100 + (B<0?0:B>255?255:B)).toString(16).slice(1);
         }
 
-        // Inisialisasi Posisi Bola (Standard 15-Ball Rack)
         function initGame() {
             balls = [];
-            const r = window.innerWidth < 600 ? 12 : 16; // Ukuran responsif
-            const centerX = canvas.width * 0.3;
+            // Ukuran bola lebih kecil di HP supaya muat layarnya
+            const isMobile = window.innerWidth < 600;
+            const r = isMobile ? 11 : 16; 
+            const centerX = isMobile ? canvas.width * 0.25 : canvas.width * 0.3;
             const centerY = canvas.height * 0.5;
 
-            // Bola Putih
-            const cueBall = new Ball(canvas.width * 0.75, centerY, r, '#ffffff', 0, true);
+            const cueBall = new Ball(isMobile ? canvas.width * 0.75 : canvas.width * 0.75, centerY, r, '#ffffff', 0, true);
             balls.push(cueBall);
 
-            // Arahkan pandangan awal stik ke bola putih
-            mouse.x = cueBall.x + 100;
-            mouse.y = cueBall.y;
+            // Set bidikan awal ke belakang bola putih
+            aimPoint.x = cueBall.x + 80;
+            aimPoint.y = centerY;
 
-            // Warna Resmi Bola Billiard (1-15)
             const poolColors = [
                 '#f1c40f', '#2980b9', '#e74c3c', '#9b59b6', '#d35400', '#27ae60', '#7f8c8d', '#111111',
                 '#f39c12', '#2980b9', '#c0392b', '#8e44ad', '#e67e22', '#2ecc71', '#bdc3c7'
@@ -199,92 +231,79 @@
                 for (let j = 0; j <= i; j++) {
                     let num = ballIndex + 1;
                     let color = poolColors[ballIndex % poolColors.length];
-                    
-                    // Bola 8 (Hitam) wajib berada di tengah tumpukan baris ke-3
-                    if (i === 2 && j === 1) {
-                        num = 8;
-                        color = '#111111';
-                    } else if (num === 8) { 
-                        // Tukar jika angka 8 keluar duluan di posisi lain
-                        num = 3; 
-                        color = '#e74c3c';
-                    }
+                    if (i === 2 && j === 1) { num = 8; color = '#111111'; }
+                    else if (num === 8) { num = 3; color = '#e74c3c'; }
 
                     balls.push(new Ball(currentX, currentY + (j * r * 2), r, color, num));
                     ballIndex++;
                 }
-                currentX += r * 1.73; // Jarak susunan segitiga rapat ke kanan
+                currentX += r * 1.73;
             }
         }
 
-        // Gambar meja billiard sederhana (Bumper tepi kayu)
         function drawTableBorders() {
-            ctx.lineWidth = 15;
-            ctx.strokeStyle = '#5a3d28'; // Warna border kayu
-            ctx.strokeRect(42, 42, canvas.width - 84, canvas.height - 84);
+            let border = window.innerWidth < 600 ? 20 : 40;
+            ctx.lineWidth = border;
+            ctx.strokeStyle = '#5a3d28'; 
+            ctx.strokeRect(border/2, border/2, canvas.width - border, canvas.height - border);
         }
 
-        // Gambar Stik Billiard Berdasarkan Posisi Mouse
         function drawCueStick(cueBall) {
             if (hasBroken && !isStriking) return;
 
-            // Hitung sudut antara mouse dan bola putih
-            let dx = cueBall.x - mouse.x;
-            let dy = cueBall.y - mouse.y;
+            // Hitung arah stik berdasarkan posisi sentuhan/aimPoint
+            let dx = cueBall.x - aimPoint.x;
+            let dy = cueBall.y - aimPoint.y;
             let angle = Math.atan2(dy, dx);
 
             ctx.save();
-            // Pindahkan poros rotasi ke tengah bola putih
             ctx.translate(cueBall.x, cueBall.y);
             ctx.rotate(angle);
 
-            // Jarak default stik dari bola putih + animasi saat memukul
-            let baseDistance = cueBall.radius + 15;
+            let baseDistance = cueBall.radius + 12;
             let offset = baseDistance + strikeProgress;
+            let stickLength = window.innerWidth < 600 ? 180 : 280;
 
-            // Gambar bayangan stik
+            // Stick Shadow
             ctx.beginPath();
-            ctx.moveTo(-offset - 5, 3);
-            ctx.lineTo(-offset - 250, 6);
-            ctx.strokeStyle = 'rgba(0,0,0,0.3)';
-            ctx.lineWidth = 5;
-            ctx.stroke();
-
-            // Gambar Stik Utama (Tapered / Mengecil di ujung depan)
-            // Ujung depan (Putih/Ivory)
-            ctx.beginPath();
-            ctx.moveTo(-offset, 0);
-            ctx.lineTo(-offset - 20, 0);
-            ctx.strokeStyle = '#f5f5f5';
+            ctx.moveTo(-offset - 5, 4);
+            ctx.lineTo(-offset - stickLength, 6);
+            ctx.strokeStyle = 'rgba(0,0,0,0.25)';
             ctx.lineWidth = 4;
             ctx.stroke();
 
-            // Batang utama kayu kayu terang
+            // Stick Tip (Ivory)
             ctx.beginPath();
-            ctx.moveTo(-offset - 20, 0);
-            ctx.lineTo(-offset - 180, 0);
-            ctx.strokeStyle = '#e3c193';
-            ctx.lineWidth = 5;
+            ctx.moveTo(-offset, 0);
+            ctx.lineTo(-offset - 15, 0);
+            ctx.strokeStyle = '#f5f5f5';
+            ctx.lineWidth = 3;
             ctx.stroke();
 
-            // Gagang belakang kayu gelap/hitam
+            // Main Shaft (Wood)
             ctx.beginPath();
-            ctx.moveTo(-offset - 180, 0);
-            ctx.lineTo(-offset - 300, 0);
+            ctx.moveTo(-offset - 15, 0);
+            ctx.lineTo(-offset - (stickLength * 0.6), 0);
+            ctx.strokeStyle = '#e3c193';
+            ctx.lineWidth = 4;
+            ctx.stroke();
+
+            // Butt (Dark Wood)
+            ctx.beginPath();
+            ctx.moveTo(-offset - (stickLength * 0.6), 0);
+            ctx.lineTo(-offset - stickLength, 0);
             ctx.strokeStyle = '#2c1d11';
-            ctx.lineWidth = 7;
+            ctx.lineWidth = 6;
             ctx.stroke();
 
             ctx.restore();
         }
 
-        // Handle Fisika Tabrakan Lingkaran
         function checkCollisions() {
             for (let i = 0; i < balls.length; i++) {
                 for (let j = i + 1; j < balls.length; j++) {
                     let b1 = balls[i];
                     let b2 = balls[j];
-
                     let dx = b2.x - b1.x;
                     let dy = b2.y - b1.y;
                     let distance = Math.sqrt(dx * dx + dy * dy);
@@ -322,29 +341,26 @@
             }
         }
 
-        // Loop Animasi Utama
         function animate() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-
             drawTableBorders();
-
             let cueBall = balls.find(b => b.isCueBall);
 
-            // Handle Animasi Pukulan Stik (Mundur lalu Maju kencang)
             if (isStriking) {
-                if (strikeProgress < 40 && cueBall.vx === 0) {
-                    strikeProgress += 4; // Animasi stik ditarik mundur sebelum mukul
+                if (strikeProgress < 45 && cueBall.vx === 0) {
+                    strikeProgress += 5; 
                 } else {
-                    strikeProgress -= 25; // Stik maju cepat menghantam bola
+                    strikeProgress -= 30; 
                     if (strikeProgress <= 0) {
                         isStriking = false;
-                        // Kasih dorongan laju ke bola putih sesuai sudut arah stik
-                        let dx = cueBall.x - mouse.x;
-                        let dy = cueBall.y - mouse.y;
+                        let dx = cueBall.x - aimPoint.x;
+                        let dy = cueBall.y - aimPoint.y;
                         let angle = Math.atan2(dy, dx);
                         
-                        cueBall.vx = Math.cos(angle) * 55; // Power Pukulan
-                        cueBall.vy = Math.sin(angle) * 55;
+                        // Menyesuaikan power pukulan di layar HP biar pas
+                        let power = window.innerWidth < 600 ? 40 : 55;
+                        cueBall.vx = Math.cos(angle) * power;
+                        cueBall.vy = Math.sin(angle) * power;
                         hasBroken = true;
                     }
                 }
@@ -357,11 +373,10 @@
                 ball.draw();
             });
 
-            if (cueBall && !hasBroken || isStriking) {
+            if (cueBall && (!hasBroken || isStriking)) {
                 drawCueStick(cueBall);
             }
 
-            // Pindah halaman otomatis kalau bola sudah berhenti menggelinding
             if (hasBroken && !isStriking) {
                 let totalSpeed = balls.reduce((sum, b) => sum + Math.sqrt(b.vx**2 + b.vy**2), 0);
                 if (totalSpeed < 0.8) {
@@ -369,7 +384,7 @@
                     setTimeout(() => {
                         container.classList.add('fade-out');
                         setTimeout(() => {
-                            window.location.href = "main.html"; // Target redirect setelah break selesai
+                            window.location.href = "main.html"; 
                         }, 1000);
                     }, 400);
                 }
@@ -377,14 +392,6 @@
 
             requestAnimationFrame(animate);
         }
-
-        // Trigger Pukulan saat Klik Layar
-        window.addEventListener('click', () => {
-            if (!hasBroken && !isStriking) {
-                isStriking = true;
-                document.querySelector('.instruction').style.display = 'none';
-            }
-        });
 
         initGame();
         animate();
